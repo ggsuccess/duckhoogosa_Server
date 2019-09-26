@@ -1,20 +1,29 @@
-import os
-import pprint
+# -'-coding:utf-8-'-
 import sys
+import json
 import datetime
+import pprint
+from flask import request
 from flask import Flask
 from pymongo import MongoClient
-import json
-
+from bson.objectid import ObjectId
 from flask_restful import reqparse, abort, Api, Resource
+from util import getFileNameFromLink
+from scheduleModule import imageScheduleQueue
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SECRETS_PATH = os.path.join(BASE_DIR + '/app/secret.json')
-secrets = json.loads(open(SECRETS_PATH).read())
+import schedule
+import time
 
-for key, value in secrets.items():
-    setattr(sys.modules[__name__], key, value)
+# from authlib.client import OAuth2Session
+# import google.oauth2.credentials
+# import googleapiclient.discovery
+# import google_auth
 
+from setConfigure import set_secret
+
+set_secret(__name__)
+
+# 환경변수 로드
 conf_host = getattr(sys.modules[__name__], 'DB-HOST')
 conf_user = getattr(sys.modules[__name__], 'DB-USER')
 conf_password = getattr(sys.modules[__name__], 'DB-PASSWORD')
@@ -22,65 +31,49 @@ conf_password = getattr(sys.modules[__name__], 'DB-PASSWORD')
 connection = MongoClient(conf_host,
                          username=conf_user,
                          password=conf_password,
+                         authSource="duck",
                          authMechanism='SCRAM-SHA-256')
-
 db = connection.duck
+
+# 테스트용 스키마
 tool = db.tool
 posts = db.posts
+# 실제 사용 스키마
 commentsCollections = db.comments
+problemsCollections = db.problems
 
-# ______________________  DB 사용법 메모 _______________________
-# post = {"author": "Mike",
-#         "text": "My first blog post!",
-#         "tags": ["mongodb", "python", "pymongo"],
-#         "date": datetime.datetime.utcnow()}
-#
-# post_id = posts.insert_one(post).inserted_id
-#
-# pprint.pprint(tool.find_one())
-# pprint.pprint(post_id);
-#
-# pprint.pprint(posts.find_one({"_id": post_id}))
-#
-# new_posts = [{"author": "Mike",
-#               "text": "Another post!",
-#               "tags": ["bulk", "insert"],
-#               "date": datetime.datetime(2009, 11, 12, 11, 14)},
-#              {"author": "Eliot",
-#               "title": "MongoDB is fun",
-#               "text": "and pretty easy too!",
-#               "date": datetime.datetime(2009, 11, 10, 10, 45)}]
-# result = posts.insert_many(new_posts)
-# result.inserted_ids
-# ______________________  DB 사용법 메모 _______________________
-
-pprint.pprint(posts.count_documents({}))
-
-# app.secret_key = "secret key"
 app = Flask(__name__)
 api = Api(app)
 
-
-# 가장 간단한 예제
-@app.route("/")
-def hello():
-    return "nothing here"
+# app.secret_key = getattr(sys.modules[__name__], 'FN_FLASK_SECRET_KEY')
+# app.register_blueprint(google_auth.app)
 
 
+# 구글 연동용으로 카피해놓은 코드. 실제 프로젝트 무관
+# @app.route('/')
+# def index():
+#     if google_auth.is_logged_in():
+#         user_info = google_auth.get_user_info()
+#         return '<div>You are currently logged in as ' + user_info['given_name'] + '<div><pre>' + json.dumps(user_info,
+#                                                                                                             indent=4) + "</pre>"
+#     return 'You are not currently logged in.'
+
+
+# json 쪼개는 로직
 parser = reqparse.RequestParser()
 parser.add_argument('task')
 parser.add_argument('email')
 parser.add_argument('comment')
 parser.add_argument('problem_id')
+parser.add_argument('id')
+parser.add_argument('representImg')
+
+#
+def job():
+    print("Do Job...!!!")
+
 
 # ________________________참고 구현체 _______________________
-
-TODOS = {
-    'todo1': {'task': 'Make Money'},
-    'todo2': {'task': 'Play PS4'},
-    'todo3': {'task': 'Study!'},
-}
-
 
 def abort_if_todo_doesnt_exist(todo_id):
     if todo_id not in TODOS:
@@ -117,11 +110,15 @@ class TodoList(Resource):
 
 
 # __________________________________________________
+@app.route("/")
+def helloroute():
+    return "helloroute"
+
 
 class CommentList(Resource):
     def get(self, problem_id):
         result = commentsCollections.find_all({"problem_id": problem_id})
-        return TODOS
+        return result
 
 
 class Comment(Resource):
@@ -137,15 +134,67 @@ class Comment(Resource):
         return json.dumps(obj), 201
 
 
-# URL Router에 맵핑한다.(Rest URL정의)
+class ProblemGet(Resource):
+    def get(self, problem_id):
+        result = problemsCollections.find_one(ObjectId(problem_id))
+        result['_id'] = str(result['_id'])
+        return result, 201
 
+
+class Problem(Resource):
+    def post(self):
+        print("@@@@@@@@@POST PROBLEM@@@@@@@@@@")
+        args = parser.parse_args()
+        obj = {"link": args['representImg'], "filename": getFileNameFromLink(args['representImg'])}
+        imageScheduleQueue.append(obj)
+        content = request.get_json()
+        result_id = problemsCollections.insert_one(content).inserted_id
+        obj = {"_id": str(result_id)}
+        return json.dumps(obj), 201
+
+
+class ProblemMain(Resource):
+    def GET(self):
+        return "good!"
+
+
+class ProblemSearch(Resource):
+    def GET(self):
+        return "good!"
+
+
+class ProblemSolution(Resource):
+    def POST(self):
+        return "good!"
+
+
+class ProblemEvalation(Resource):
+    def POST(self):
+        return "good!"
+
+
+# URL Router에 맵핑한다.(Rest URL정의)
 api.add_resource(TodoList, '/todos/')
 api.add_resource(Todo, '/todos/<string:todo_id>')
 
-# api.add_resource(Comments, '/Comments/<string:Comments_id>')
-api.add_resource(Comment, '/comments/')
-api.add_resource(CommentList, '/comments/<string:problem_id>')
+# comments _ POST
+api.add_resource(Comment, '/comment/')
+# comments _ GET
+api.add_resource(CommentList, '/comment/<string:problem_id>')
+
+# problem _ GET
+# api.add_resource(ProblemMain, '/problem/main')
+# api.add_resource(ProblemSearch, '/problem/search/<string:tag_word>')
+#
+# # problem _ POST
+# api.add_resource(ProblemSolution, '/problem/solution')
+# api.add_resource(ProblemEvalation, '/problem/evalation')
+
+# problem - GET, POST
+api.add_resource(ProblemGet, '/problem/<string:problem_id>')
+api.add_resource(Problem, '/problem/')
 
 # 서버 실행
 if __name__ == '__main__':
     app.run(debug=True, port=8000)
+    print("앱켜짐")

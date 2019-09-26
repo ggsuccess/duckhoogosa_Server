@@ -5,10 +5,10 @@
 2) python3 /app/app.py
 
 ### 패키지 설치 후엔 패키지를 추가.
-- pip freeze > requirements.txt
+pip3 freeze > requirements.txt
 
 ### pull upstream 후에는 패키지를 설치.
-- pip install -r requirements.txt
+pip3 install -r requirements.txt
 
 ### 파일 구성
 - model.py 기존에 작성했던 ORM 흔적
@@ -18,6 +18,14 @@
 
 ## pylint 설정
 https://stackoverflow.com/questions/38134086/how-to-run-pylint-with-pycharm
-- 여기 첫번째 답변 기준으로 모든 프로젝트 파일을 검사하면서 관리. 
+- 여기 첫번째 답변 기준으로 모든 프로젝트 파일을 검사하면서 관리.
 
-### controller, model, service 등은 다른 참고 자료등에서 보긴 했으나 아직 구조를 정하지 못해서 어떻게 관리할지 앞으로 정해야함.
+
+## 가상 환경 설정
+- python3 -m venv venv
+
+- which python3 
+
+- /Users/mac/WebstormProjects/4WEEKS/DuckhooGosa-server/venv/bin/python3
+
+=> 이렇게 떠야 정상. 원래 파이선 설치 경로면 에러발생

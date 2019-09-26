@@ -98,3 +98,32 @@ class Users(Document):
     #     email = EmailField(max_length=30)
     #     friends = ListField(ReferenceField('self'))
     #     extra = DictField()
+
+
+
+
+# ______________________  DB 사용법 메모 _______________________
+# post = {"author": "Mike",
+#         "text": "My first blog post!",
+#         "tags": ["mongodb", "python", "pymongo"],
+#         "date": datetime.datetime.utcnow()}
+#
+# post_id = posts.insert_one(post).inserted_id
+#
+# pprint.pprint(tool.find_one())
+# pprint.pprint(post_id);
+#
+# pprint.pprint(posts.find_one({"_id": post_id}))
+#
+# new_posts = [{"author": "Mike",
+#               "text": "Another post!",
+#               "tags": ["bulk", "insert"],
+#               "date": datetime.datetime(2009, 11, 12, 11, 14)},
+#              {"author": "Eliot",
+#               "title": "MongoDB is fun",
+#               "text": "and pretty easy too!",
+#               "date": datetime.datetime(2009, 11, 10, 10, 45)}]
+# result = posts.insert_many(new_posts)
+# result.inserted_ids
+# pprint.pprint(posts.count_documents({}))
+# ______________________  DB 사용법 메모 _______________________
