@@ -12,7 +12,6 @@ imageScheduleQueue = deque()
 
 
 def clear_image_qeuee():
-    print("===Image Work Queue check===")
     if len(imageScheduleQueue) != 0:
         print("Start trans")
         obj = imageScheduleQueue.popleft()
@@ -27,7 +26,6 @@ def clear_image_qeuee():
             if i > root_index:
                 full_path += "/" + v
 
-        print(full_path[1:], "풀경로(S3로 쓸내용)")
         url = upload_file(path, full_path[1:])
         if os.path.isfile(path):
             os.remove(path)
@@ -35,7 +33,7 @@ def clear_image_qeuee():
 
 
 def schedule_list():
-    schedule.every(3).seconds.do(clear_image_qeuee)
+    schedule.every(1).seconds.do(clear_image_qeuee)
     while True:
         schedule.run_pending()  # pending된 Job을 실행
         time.sleep(1)
@@ -59,31 +57,3 @@ print('Thread Work Start (schedule)')
 # schedule.every().wednesday.at("13:15").do(job)
 # schedule.every().minute.at(":17").do(job)
 
-
-# from collections import deque
-# queue = deque(["Eric", "John", "Michael"])
-# queue.append("Terry")           # Terry arrives
-# queue.append("Graham")          # Graham arrives
-# queue.popleft()                 # The first to arrive now leaves
-# ///'Eric'
-# queue.popleft()                 # The second to arrive now leaves
-# ///'John'
-# queue                           # Remaining queue in order of arrival
-# ///deque(['Michael', 'Terry', 'Graham'])
-
-# def uploadFile(filename, files):
-#     k = Key(bucket)
-#     k.key = filename
-#     k.set_contents_from_string(files.read())
-#
-#     # 파일 공개
-#     k.set_acl('public-read')
-#
-#     # 업로드 후 url 생성, 유효기간 설정
-#     return k.generate_url(3600 * 24 * 7)
-#
-#
-# def download(url, file_name):
-#     with open("./imgTrs/" + file_name, "wb") as file:  # open in binary mode
-#         response = get(url)  # get request
-#         file.write(response.content)  # write to file

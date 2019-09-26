@@ -1,5 +1,6 @@
 # SECRET INFORMATION FOR PROJECT DONT PUSH GITHUB
 app/secrets.json
+app/secret.json
 secret.json
 
 # Created by https://www.gitignore.io/api/macos,python,django

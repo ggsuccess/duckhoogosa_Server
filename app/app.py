@@ -3,18 +3,21 @@ import sys
 import json
 import datetime
 import pprint
-from flask import request
-from flask import Flask
+from flask import Flask, redirect, session, request
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from flask_restful import reqparse, abort, Api, Resource
 from util import getFileNameFromLink
 from scheduleModule import imageScheduleQueue
+from oauth2client.contrib.flask_util import UserOAuth2
+from requests import get
+from functools import wraps
+from flask_cors import CORS, cross_origin
+import logging
 
 import schedule
 import time
 
-# from authlib.client import OAuth2Session
 # import google.oauth2.credentials
 # import googleapiclient.discovery
 # import google_auth
@@ -33,6 +36,7 @@ connection = MongoClient(conf_host,
                          password=conf_password,
                          authSource="duck",
                          authMechanism='SCRAM-SHA-256')
+
 db = connection.duck
 
 # 테스트용 스키마
@@ -43,21 +47,66 @@ commentsCollections = db.comments
 problemsCollections = db.problems
 
 app = Flask(__name__)
+app.config['TESTING'] = False
+
+cors = CORS(app, origins=["http://localhost:3000"], headers=['Content-Type'],
+            expose_headers=['Access-Control-Allow-Origin'], supports_credentials=True)
 api = Api(app)
+logging.getLogger('flask_cors').level = logging.DEBUG
+
+
+# # 로그인할때 세션에 집어넣어음.
+# @app.route('/*', methods=['OPTION'])
+# def option():
+#     print("옵션 전체 도메인")
+#     return "GOOD"
+
+
+def login_required():
+    def _decorated_function(f):
+        @wraps(f)
+        def __decorated_function(*args, **kwargs):
+            print(session, "세션 체크")
+            if 'logged_in' in session:
+                print("로그인 통과")
+                return f(*args, **kwargs)
+            else:
+                print("세션없음")
+                return redirect('http://localhost:3000/login')
+
+        return __decorated_function
+
+    return _decorated_function
+
+
+@app.route('/login/', methods=['POST', 'OPTION'])
+def Login():
+    if 'access_token' in request.headers:
+        access_token = request.headers['access_token']
+        data = get("https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=" + access_token).json()
+        if 'user_id' in data:
+            email = data['email']
+            session['logged_in'] = True
+            session['email'] = email
+            print("로그인 세션입력됨", session)
+            return {'result': True}
+        else:
+            session.clear()
+            return {'result': False, "reason": "Token is not validate"}
+    else:
+        return {"result": False, "reason": "Req didn't has token"}
+
+
+@app.route('/logout/', methods=['POST', 'OPTION'])
+@login_required()
+def Logout():
+    print("로그아웃 SEQ", session)
+    session.clear()
+    return {'result': True}
+
 
 # app.secret_key = getattr(sys.modules[__name__], 'FN_FLASK_SECRET_KEY')
 # app.register_blueprint(google_auth.app)
-
-
-# 구글 연동용으로 카피해놓은 코드. 실제 프로젝트 무관
-# @app.route('/')
-# def index():
-#     if google_auth.is_logged_in():
-#         user_info = google_auth.get_user_info()
-#         return '<div>You are currently logged in as ' + user_info['given_name'] + '<div><pre>' + json.dumps(user_info,
-#                                                                                                             indent=4) + "</pre>"
-#     return 'You are not currently logged in.'
-
 
 # json 쪼개는 로직
 parser = reqparse.RequestParser()
@@ -68,60 +117,18 @@ parser.add_argument('problem_id')
 parser.add_argument('id')
 parser.add_argument('representImg')
 
-#
-def job():
-    print("Do Job...!!!")
-
 
 # ________________________참고 구현체 _______________________
 
-def abort_if_todo_doesnt_exist(todo_id):
-    if todo_id not in TODOS:
-        abort(404, message="Todo {} doesn't exist".format(todo_id))
-
-
-class Todo(Resource):
-    def get(self, todo_id):
-        abort_if_todo_doesnt_exist(todo_id)
-        return TODOS[todo_id]
-
-    def delete(self, todo_id):
-        abort_if_todo_doesnt_exist(todo_id)
-        del TODOS[todo_id]
-        return '', 204
-
-    def put(self, todo_id):
-        args = parser.parse_args()
-        task = {'task': args['task']}
-        TODOS[todo_id] = task
-        return task, 201
-
-
-class TodoList(Resource):
-    def get(self):
-        pprint.pprint(TODOS)
-        return TODOS
-
-    def post(self):
-        args = parser.parse_args()
-        todo_id = 'todo%d' % (len(TODOS) + 1)
-        TODOS[todo_id] = {'task': args['task']}
-        return TODOS[todo_id], 201
-
-
-# __________________________________________________
-@app.route("/")
-def helloroute():
-    return "helloroute"
-
-
 class CommentList(Resource):
+    @login_required()
     def get(self, problem_id):
         result = commentsCollections.find_all({"problem_id": problem_id})
         return result
 
 
 class Comment(Resource):
+    @login_required()
     def post(self):
         args = parser.parse_args()
         comment = {
@@ -135,6 +142,7 @@ class Comment(Resource):
 
 
 class ProblemGet(Resource):
+    @login_required()
     def get(self, problem_id):
         result = problemsCollections.find_one(ObjectId(problem_id))
         result['_id'] = str(result['_id'])
@@ -142,8 +150,8 @@ class ProblemGet(Resource):
 
 
 class Problem(Resource):
+    @login_required()
     def post(self):
-        print("@@@@@@@@@POST PROBLEM@@@@@@@@@@")
         args = parser.parse_args()
         obj = {"link": args['representImg'], "filename": getFileNameFromLink(args['representImg'])}
         imageScheduleQueue.append(obj)
@@ -154,28 +162,30 @@ class Problem(Resource):
 
 
 class ProblemMain(Resource):
+    @login_required()
     def GET(self):
         return "good!"
 
 
 class ProblemSearch(Resource):
+    @login_required()
     def GET(self):
         return "good!"
 
 
 class ProblemSolution(Resource):
+    @login_required()
     def POST(self):
         return "good!"
 
 
 class ProblemEvalation(Resource):
+    @login_required()
     def POST(self):
         return "good!"
 
 
 # URL Router에 맵핑한다.(Rest URL정의)
-api.add_resource(TodoList, '/todos/')
-api.add_resource(Todo, '/todos/<string:todo_id>')
 
 # comments _ POST
 api.add_resource(Comment, '/comment/')
@@ -183,12 +193,12 @@ api.add_resource(Comment, '/comment/')
 api.add_resource(CommentList, '/comment/<string:problem_id>')
 
 # problem _ GET
-# api.add_resource(ProblemMain, '/problem/main')
-# api.add_resource(ProblemSearch, '/problem/search/<string:tag_word>')
-#
-# # problem _ POST
-# api.add_resource(ProblemSolution, '/problem/solution')
-# api.add_resource(ProblemEvalation, '/problem/evalation')
+api.add_resource(ProblemMain, '/problem/main')
+api.add_resource(ProblemSearch, '/problem/search/<string:tag_word>')
+
+# problem _ POST
+api.add_resource(ProblemSolution, '/problem/solution')
+api.add_resource(ProblemEvalation, '/problem/evalation')
 
 # problem - GET, POST
 api.add_resource(ProblemGet, '/problem/<string:problem_id>')
@@ -196,5 +206,6 @@ api.add_resource(Problem, '/problem/')
 
 # 서버 실행
 if __name__ == '__main__':
+    app.secret_key = getattr(sys.modules[__name__], 'FN_FLASK_SECRET_KEY')
     app.run(debug=True, port=8000)
     print("앱켜짐")
