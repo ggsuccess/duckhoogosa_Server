@@ -33,7 +33,7 @@ def clear_image_qeuee():
 
 
 def schedule_list():
-    schedule.every(1).seconds.do(clear_image_qeuee)
+    schedule.every(90).seconds.do(clear_image_qeuee)
     while True:
         schedule.run_pending()  # pending된 Job을 실행
         time.sleep(1)

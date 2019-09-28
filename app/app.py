@@ -3,7 +3,7 @@ import sys
 import json
 import datetime
 import pprint
-from flask import Flask, redirect, session, request
+from flask import Flask, session, request
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from flask_restful import reqparse, abort, Api, Resource
@@ -56,10 +56,10 @@ logging.getLogger('flask_cors').level = logging.DEBUG
 
 
 # # 로그인할때 세션에 집어넣어음.
-# @app.route('/*', methods=['OPTION'])
-# def option():
-#     print("옵션 전체 도메인")
-#     return "GOOD"
+@app.route('/*', methods=['OPTION'])
+def option():
+    print("옵션 전체 도메인")
+    return "GOOD"
 
 
 def login_required():
@@ -72,7 +72,7 @@ def login_required():
                 return f(*args, **kwargs)
             else:
                 print("세션없음")
-                return redirect('http://localhost:3000/login')
+                return "NO SESSION ERROR"
 
         return __decorated_function
 
@@ -116,9 +116,51 @@ parser.add_argument('comment')
 parser.add_argument('problem_id')
 parser.add_argument('id')
 parser.add_argument('representImg')
-
+parser.add_argument('next_problem')
+parser.add_argument('load_count')
 
 # ________________________참고 구현체 _______________________
+
+
+def abort_if_todo_doesnt_exist(todo_id):
+    if todo_id not in TODOS:
+        abort(404, message="Todo {} doesn't exist".format(todo_id))
+
+
+class Todo(Resource):
+    def get(self, todo_id):
+        abort_if_todo_doesnt_exist(todo_id)
+        return TODOS[todo_id]
+
+    def delete(self, todo_id):
+        abort_if_todo_doesnt_exist(todo_id)
+        del TODOS[todo_id]
+        return '', 204
+
+    def put(self, todo_id):
+        args = parser.parse_args()
+        task = {'task': args['task']}
+        TODOS[todo_id] = task
+        return task, 201
+
+
+class TodoList(Resource):
+    def get(self):
+        pprint.pprint(TODOS)
+        return TODOS
+
+    def post(self):
+        args = parser.parse_args()
+        todo_id = 'todo%d' % (len(TODOS) + 1)
+        TODOS[todo_id] = {'task': args['task']}
+        return TODOS[todo_id], 201
+
+
+# __________________________________________________
+@app.route("/")
+def helloroute():
+    return "hello"
+
 
 class CommentList(Resource):
     @login_required()
@@ -138,7 +180,7 @@ class Comment(Resource):
             "day": datetime.datetime.utcnow()}
         result_id = commentsCollections.insert_one(comment).inserted_id
         obj = {"_id": str(result_id)}
-        return json.dumps(obj), 201
+        return json.dumps(obj)
 
 
 class ProblemGet(Resource):
@@ -146,7 +188,7 @@ class ProblemGet(Resource):
     def get(self, problem_id):
         result = problemsCollections.find_one(ObjectId(problem_id))
         result['_id'] = str(result['_id'])
-        return result, 201
+        return result
 
 
 class Problem(Resource):
@@ -156,12 +198,25 @@ class Problem(Resource):
         obj = {"link": args['representImg'], "filename": getFileNameFromLink(args['representImg'])}
         imageScheduleQueue.append(obj)
         content = request.get_json()
+        pprint.pprint(content)
         result_id = problemsCollections.insert_one(content).inserted_id
         obj = {"_id": str(result_id)}
-        return json.dumps(obj), 201
-
+        return json.dumps(obj)
 
 class ProblemMain(Resource):
+    def post(self):
+        args = parser.parse_args()
+        count = problemsCollections.count()
+        if count < int(args['next_problem']):
+            return json.dumps([])
+        sortedproblem = problemsCollections.find().sort('date', -1).skip(int(args['next_problem']))\
+            .limit(3)
+        result = []
+        for v in sortedproblem:
+            v['_id'] = str(v['_id'])
+            result.append(v)
+        return json.dumps(result)
+
     @login_required()
     def GET(self):
         return "good!"
@@ -188,7 +243,7 @@ class ProblemEvalation(Resource):
 # URL Router에 맵핑한다.(Rest URL정의)
 
 # comments _ POST
-api.add_resource(Comment, '/comment/')
+api.add_resource(Comment, '/comment')
 # comments _ GET
 api.add_resource(CommentList, '/comment/<string:problem_id>')
 
@@ -200,9 +255,10 @@ api.add_resource(ProblemSearch, '/problem/search/<string:tag_word>')
 api.add_resource(ProblemSolution, '/problem/solution')
 api.add_resource(ProblemEvalation, '/problem/evalation')
 
+
 # problem - GET, POST
 api.add_resource(ProblemGet, '/problem/<string:problem_id>')
-api.add_resource(Problem, '/problem/')
+api.add_resource(Problem, '/problem')
 
 # 서버 실행
 if __name__ == '__main__':

@@ -153,7 +153,7 @@ def make_img_pixel(filename):
     # 2. No leftover pixels at the edges
     # This means that some squares might have one more or one less pixel
     # depending on rounding
-    num_cols = int(75)
+    num_cols = int(50)
     square_w = float(img.shape[1]) / num_cols
     num_rows = int(round(img.shape[0] / square_w))
     square_h = float(img.shape[0]) / num_rows

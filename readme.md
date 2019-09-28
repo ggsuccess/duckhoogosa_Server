@@ -22,10 +22,10 @@ https://stackoverflow.com/questions/38134086/how-to-run-pylint-with-pycharm
 
 
 ## 가상 환경 설정
+- pip install venv
 - python3 -m venv venv
-
 - which python3 
-
+- source venv/bin/activate
 - /Users/mac/WebstormProjects/4WEEKS/DuckhooGosa-server/venv/bin/python3
 
 => 이렇게 떠야 정상. 원래 파이선 설치 경로면 에러발생
