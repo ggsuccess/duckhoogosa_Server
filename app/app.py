@@ -3,24 +3,17 @@ import sys
 import json
 import datetime
 import pprint
+import time
 from flask import Flask, session, request
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from flask_restful import reqparse, abort, Api, Resource
 from util import getFileNameFromLink
 from scheduleModule import imageScheduleQueue
-from oauth2client.contrib.flask_util import UserOAuth2
 from requests import get
 from functools import wraps
 from flask_cors import CORS, cross_origin
 import logging
-
-import schedule
-import time
-
-# import google.oauth2.credentials
-# import googleapiclient.discovery
-# import google_auth
 
 from setConfigure import set_secret
 
@@ -45,6 +38,7 @@ posts = db.posts
 # 실제 사용 스키마
 commentsCollections = db.comments
 problemsCollections = db.problems
+ratingsColeections = db.ratings
 usersCollections = db.users
 
 app = Flask(__name__)
@@ -90,6 +84,21 @@ def Login():
             session['logged_in'] = True
             session['email'] = email
             print("로그인 세션입력됨", session)
+            result = usersCollections.find_one({"email": email})
+            if result is None:
+                print(email, "유저없음")
+                user = {
+                    "email": email,
+                    "nickname": None,
+                    "img": None,
+                    "tier": None,
+                    "answerCount": 0,
+                    "totalProblemCount": 0,
+                    "solution": []
+                }
+                usersCollections.insert_one(user)
+                print(email, "유저생성")
+
             return {'result': True}
         else:
             session.clear()
@@ -143,7 +152,8 @@ class Comment(Resource):
             "email": args.email,
             "problem_id": args.problem_id,
             "comment": args.comment,
-            "day": datetime.datetime.utcnow()}
+            "day": int(time.mktime(datetime.datetime.utcnow().timetuple())) * 1000}
+
         result_id = commentsCollections.insert_one(comment).inserted_id
         obj = {"_id": str(result_id)}
         return json.dumps(obj)
@@ -152,6 +162,7 @@ class Comment(Resource):
 class ProblemGet(Resource):
     @login_required()
     def get(self, problem_id):
+        print(problem_id, "문제지 주세요.")
         result = problemsCollections.find_one(ObjectId(problem_id))
         result['_id'] = str(result['_id'])
         return result
@@ -177,13 +188,15 @@ class Problem(Resource):
         obj = {"_id": str(result_id)}
         return json.dumps(obj)
 
+
 class ProblemMain(Resource):
     def post(self):
         args = parser.parse_args()
         count = problemsCollections.count()
         if count < int(args['next_problem']):
             return json.dumps([])
-        sortedproblem = problemsCollections.find().sort('date', -1).skip(int(args['next_problem']))\
+
+        sortedproblem = problemsCollections.find().sort('date', -1).skip(int(args['next_problem'])) \
             .limit(5)
         result = []
         for v in sortedproblem:
@@ -196,8 +209,7 @@ class ProblemMain(Resource):
         return "good!"
 
 
-
-class ProblemSearch(Resource):     #제목 OR 검색
+class ProblemSearch(Resource):  # 제목 OR 검색
     # @login_required()
     def post(self):
         args = parser.parse_args()
@@ -207,7 +219,8 @@ class ProblemSearch(Resource):     #제목 OR 검색
         if count < int(args['next_problem']):
             return json.dumps([])
         problemsCollections.create_index([('title', 'text')])
-        sortedproblem = problemsCollections.find({"$text": {"$search": word}}).sort('date', -1).skip(int(args['next_problem'])) \
+        sortedproblem = problemsCollections.find({"$text": {"$search": word}}).sort('date', -1).skip(
+            int(args['next_problem'])) \
             .limit(5)
         result = []
         for v in sortedproblem:
@@ -215,7 +228,8 @@ class ProblemSearch(Resource):     #제목 OR 검색
             result.append(v)
         return json.dumps(result)
 
-class ProblemGenre(Resource):     #장르검색
+
+class ProblemGenre(Resource):  # 장르검색
     # @login_required()
     def post(self):
         args = parser.parse_args()
@@ -228,7 +242,8 @@ class ProblemGenre(Resource):     #장르검색
         if count < int(args['next_problem']):
             return json.dumps([])
         problemsCollections.create_index([('genre', 'text')])
-        sortedproblem = problemsCollections.find({"$text": {"$search": word}}).sort('date', -1).skip(int(args['next_problem'])) \
+        sortedproblem = problemsCollections.find({"$text": {"$search": word}}).sort('date', -1).skip(
+            int(args['next_problem'])) \
             .limit(5)
         result = []
         for v in sortedproblem:
@@ -236,9 +251,6 @@ class ProblemGenre(Resource):     #장르검색
             result.append(v)
 
         return json.dumps(result)
-
-
-
 
 
 # class ProblemSearch(Resource):     #제목 and 검색
@@ -298,7 +310,6 @@ class ProblemGenre(Resource):     #장르검색
 #         return json.dumps(result)
 
 
-
 class ProblemSolution(Resource):
     @login_required()
     def post(self):
@@ -306,7 +317,6 @@ class ProblemSolution(Resource):
         original = problemsCollections.find_one(ObjectId(content['problem_id']))
         original_answers = [];
         for problem in original['problems']:
-            print(problem,'프로블램')
             arr = [];
             if 'subjectAnswer' in problem:
                 print(problem['subjectAnswer'], "주관식 답 집어넣음")
@@ -314,13 +324,12 @@ class ProblemSolution(Resource):
                 continue
 
             for index, choice in enumerate(problem['choice']):
-                print(choice[0],"?왜 딕셔너리가 아닌가?")
+                print(choice[0], "?왜 딕셔너리가 아닌가?")
                 if choice[0]['answer'] == 'true':
                     print(index, "객관식 답 넣음")
                     arr.append(index)
             original_answers.append(arr)
 
-        print("완성된 답변 리스트", original_answers)
         try_count = len(original_answers)
         right_count = 0
 
@@ -350,56 +359,67 @@ class ProblemSolution(Resource):
                         "totalOkProblem": original['okCount'],
                         "checkProblem": original['problems']
                         }
+        print(content, "이거 데이터 검증")
         solution_obj = {
             "problem_id": content['problem_id'],
-            "solved_date": content['date'],
+            "title": original['title'],
             "answer": content['answer'],
+            "img": original['representImg'],
+            "date": content['date'],
             "accuracy": round((right_count / try_count) * 100, 2)
         }
-        user_obj = {
-            "email": content['email'],
-            "nickname": None,
-            "img": None,
-            "tier": None,
-            "answerCount": 0,
-            "totalProblemCount": 0,
-            "solution": []
-        }
 
-        user_check_result = usersCollections.find_one({"email": content['email']})
-        print(user_check_result)
-        if user_check_result is None:
-            usersCollections.insert_one(user_obj)
-            result = usersCollections.update_one({"email": content['email']},
-                                                 {"$push": {"solution": solution_obj}})
-            pprint.pprint(result)
-            print("결과1")
-        else:
-            print(solution_obj, '발작적 솔루션 제출')
-            result = usersCollections.update_one({"email": content['email']},
-                                                 {'$push': {'solution': solution_obj}})
-            pprint.pprint(result)
-            print("결과2")
-
+        usersCollections.update_one({"email": content['email']},
+                                    {'$push': {'solution': solution_obj},
+                                     '$inc': {'answerCount': right_count, 'totalProblemCount': try_count}
+                                     })
         return json.dumps(response_obj)
-
-
-# 값판정해서 클라이언트내려주기
-# 사용자콜렉션에 반영해주기
-# 문제메타 정보 업데이트하기
-
-# okCount: this.state.resultData.okCount,
-# tryCount: this.state.resultData.tryCount,
-# commentCount: this.state.resultData.commentCount,
-# problemId: this.state.resultData.problemId,
-# checkProblem: this.state.resultData.checkProblem,
-# totalProblem: this.state.resultData.totalProblem
 
 
 class ProblemEvalation(Resource):
     @login_required()
     def post(self):
+        evaluation = request.get_json()
+        print('평가', evaluation)
+        rating = {
+            "problem_id": evaluation['_id'],
+            "quality": evaluation['evalQ'],
+            "dificulty": evaluation['evalD'],
+            "email": evaluation['email']
+        }
+        comment = {
+            "problem_id": evaluation['_id'],
+            "email": evaluation['email'],
+            "comment": evaluation['comments'],
+            "day": datetime.datetime.utcnow()
+        }
+        commentsCollections.insert_one(comment)
+        ratingsColeections.insert_one(rating)
         return "good!"
+
+
+class Account(Resource):
+    @login_required()
+    def get(self):
+        user = usersCollections.find_one({'email': session['email']})
+        problems = problemsCollections.find({'email': session['email']})
+        new_problems = [];
+        for problem in problems:
+            problem['img'] = problem.pop('representImg')
+            problem['_id'] = str(problem['_id'])
+            new_problems.append(problem)
+        user['problems'] = new_problems
+
+        new_solutions = [];
+        for solution in user['solution']:
+            solution['successRate'] = solution.pop('accuracy')
+            new_solutions.append(solution)
+
+        user["solution"] = new_solutions
+        print(len(user["problems"]), '내려간다')
+        user['_id'] = str(user['_id'])
+        print(user['_id'], "진짜")
+        return user
 
 
 # URL Router에 맵핑한다.(Rest URL정의)
@@ -416,11 +436,14 @@ api.add_resource(ProblemGenre, '/problem/genre')
 
 # problem _ POST
 api.add_resource(ProblemSolution, '/problem/solution')
-api.add_resource(ProblemEvalation, '/problem/evalation')
+api.add_resource(ProblemEvalation, '/problem/evaluation')
 
 # problem - GET, POST
 api.add_resource(ProblemGet, '/problem/<string:problem_id>')
 api.add_resource(Problem, '/problem')
+
+# account - GET, POST
+api.add_resource(Account, '/account/info')
 
 # 서버 실행
 if __name__ == '__main__':
