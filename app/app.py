@@ -315,51 +315,58 @@ class ProblemSolution(Resource):
     def post(self):
         content = request.get_json()
         original = problemsCollections.find_one(ObjectId(content['problem_id']))
-        original_answers = [];
+        original_answers = []
         for problem in original['problems']:
             arr = [];
-            if 'subjectAnswer' in problem:
-                print(problem['subjectAnswer'], "주관식 답 집어넣음")
+            if ('subjectAnswer' in problem) and (problem['subjectAnswer'] != True) and (
+                    problem['subjectAnswer'] != False):
                 original_answers.append(problem['subjectAnswer'])
                 continue
 
             for index, choice in enumerate(problem['choice']):
-                print(choice[0], "?왜 딕셔너리가 아닌가?")
-                if choice[0]['answer'] == 'true':
-                    print(index, "객관식 답 넣음")
+                if choice['answer'] == 'true':
                     arr.append(index)
             original_answers.append(arr)
 
         try_count = len(original_answers)
         right_count = 0
-
+        check_problem = []
+        temp_obj = {}
         for i, answer in enumerate(content["answer"]):
-            print(answer, original_answers, "정답매기기 단계")
+            print(answer == original_answers[i], "정답 비교 <>")
             if answer == original_answers[i]:
                 right_count = right_count + 1
-                print('맞춘코스', right_count, try_count, answer, original_answers[i])
+                print('정')
                 problemsCollections.update_one({"_id": ObjectId(content['problem_id'])},
                                                {'$inc': {"problems." + str(i) + ".okCount": 1,
                                                          "problems." + str(i) + ".tryCount": 1}})
+                temp_obj['ok'] = True
             else:
-                print('틀린코스', right_count, try_count, answer, original_answers[i])
                 problemsCollections.update_one({"_id": ObjectId(content['problem_id'])}, {'$inc':
-                                                                                              {"problems." + str(
-                                                                                                  i) + ".tryCount": 1}})
+                    {
+                        "problems." + str(
+                            i) + ".tryCount": 1}})
+                temp_obj['ok'] = False
+            check_problem.append(temp_obj)
+            temp_obj = {}
 
         problemsCollections.update_one({"_id": ObjectId(content['problem_id'])},
                                        {'$inc': {"okCount": right_count, "tryCount": try_count}})
-
         original = problemsCollections.find_one(ObjectId(content['problem_id']))
-        response_obj = {"_id": content['problem_id'],
-                        "okCount": right_count,
-                        "tryCount": len(content['answer']),
-                        "commentCount": commentsCollections.count_documents({"problem_id": content['problem_id']}),
-                        "totalProblem": original['tryCount'],
-                        "totalOkProblem": original['okCount'],
-                        "checkProblem": original['problems']
-                        }
+        for i, problem in enumerate(original['problems']):
+            check_problem[i]['num'] = i + 1
+            check_problem[i]['okCount'] = problem['okCount']
+            check_problem[i]['tryCount'] = problem['tryCount']
+
+        response_obj = {
+            "_id": content['problem_id'],
+            "checkProblem": check_problem,
+            "commentCount": commentsCollections.count_documents({"problem_id": content['problem_id']}),
+            "all_okCount": original['okCount'],
+            "all_tryCount": original['tryCount'],
+        }
         print(content, "이거 데이터 검증")
+
         solution_obj = {
             "problem_id": content['problem_id'],
             "title": original['title'],
