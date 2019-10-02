@@ -3,11 +3,11 @@
 ### 앱실행
 1) source /venv/bin/activate
 2) python3 /app/app.py [dev]        [옵션 없거나 dev면 dev]
-3) python3 /app/app.py production   [서버실행]
+3) python3 /app/app.py prod   [서버실행]
 3) python3 /app/app.py test         [테스트서버실행]
 
 ### 백그라운드 실행 (with log)
-* nohup python3 app.py production > app.log &   (에러출력이 파일에 찍혀서 터미널로 확인 안됨 주의) 
+* nohup python3 app/app.py prod > app.log &   (에러출력이 파일에 찍혀서 터미널로 확인 안됨 주의) 
 * netstat -ntlp | grep :8000      (포트점유 확인)
 * tail -f app.log   (로그 확인)
 

@@ -19,7 +19,6 @@ import config
 
 from setConfigure import set_secret
 
-# 앱선언
 app = Flask(__name__)
 
 set_secret(__name__)
@@ -45,6 +44,7 @@ else:
     raise ValueError('Invalid environment name')
 
 # flask CORS
+print(app.config['CLIENT_HOST'])
 cors = CORS(app, origins=[app.config['CLIENT_HOST']], headers=['Content-Type'],
             expose_headers=['Access-Control-Allow-Origin'], supports_credentials=True)
 # flask REST-api
@@ -75,7 +75,7 @@ usersCollections = db.users
 # # 로그인할때 세션에 집어넣어음.
 @app.route('/*', methods=['OPTION'])
 def option():
-    print("옵션 전체 도메인")
+    # print("OPTION RCVD 전체 도메인")
     return "GOOD"
 
 
@@ -84,10 +84,10 @@ def login_required():
         @wraps(f)
         def __decorated_function(*args, **kwargs):
             if 'logged_in' in session:
-                print("🍎", session['email'], "님 세션 통과")
+                print("🍎", session['email'], "session pass")
                 return f(*args, **kwargs)
             else:
-                print("✂️ ___세션없음___")
+                print("✂️ ___no session___")
                 return "NO SESSION ERROR"
 
         return __decorated_function
@@ -116,7 +116,7 @@ def Login():
                     "solution": []
                 }
                 usersCollections.insert_one(user)
-                print("🎉", email, " 유저생성완료")
+                print("🎉", email, " inputed user")
 
             return {'result': True}
         else:
@@ -129,13 +129,13 @@ def Login():
 @app.route('/logout', methods=['POST', 'OPTION'])
 @login_required()
 def Logout():
-    print("로그아웃 SEQ", session)
+    print("logout SEQ", session)
     session.clear()
     return {'result': True}
 
 
-# app.secret_key = getattr(sys.modules[__name__], 'FN_FLASK_SECRET_KEY')
-# app.register_blueprint(google_auth.app)
+app.secret_key = getattr(sys.modules[__name__], 'FN_FLASK_SECRET_KEY')
+app.register_blueprint(google_auth.app)
 
 # json 쪼개는 로직
 parser = reqparse.RequestParser()
@@ -153,14 +153,23 @@ parser.add_argument('genre')
 
 @app.route("/")
 def helloroute():
+    print("first hello")
     return "hello"
 
 
 class CommentList(Resource):
     @login_required()
     def get(self, problem_id):
-        result = commentsCollections.find_all({"problem_id": problem_id})
-        return result
+        temp = commentsCollections.find({"problem_id": problem_id}).sort('day', -1)
+        result = []
+        for v in temp:
+            v['_id'] = str(v['_id'])
+            v['day'] = str(v['day'])
+            nick = usersCollections.find_one({"email": v['email']})
+            if type(nick) != None:
+                v['nick'] = nick['nickname']
+                result.append(v)
+        return json.dumps(list(result))
 
 
 class Comment(Resource):
@@ -181,7 +190,7 @@ class Comment(Resource):
 class ProblemGet(Resource):
     @login_required()
     def get(self, problem_id):
-        print(problem_id, "문제지 주세요.")
+        print(problem_id, "give me problem")
         result = problemsCollections.find_one(ObjectId(problem_id))
         result['_id'] = str(result['_id'])
         return result
@@ -202,7 +211,7 @@ class Problem(Resource):
         for problem in content['problems']:
             problem['tryCount'] = 0
             problem['okCount'] = 0
-        pprint.pprint(content)
+        # pprint.pprint(content)
         result_id = problemsCollections.insert_one(content).inserted_id
         obj = {"_id": str(result_id)}
         return json.dumps(obj)
@@ -212,15 +221,16 @@ class ProblemMain(Resource):
     def post(self):
         args = parser.parse_args()
         count = problemsCollections.count()
-        if count < int(args['next_problem']):
-            return json.dumps([])
-
+        if count <= int(args['next_problem']):
+            return json.dumps('NoData')
         sortedproblem = problemsCollections.find().sort('date', -1).skip(int(args['next_problem'])) \
             .limit(5)
         result = []
         for v in sortedproblem:
             v['_id'] = str(v['_id'])
             result.append(v)
+        if len(result) is 0:
+            return json.dumps('NoData')
         return json.dumps(result)
 
     @login_required()
@@ -235,8 +245,8 @@ class ProblemSearch(Resource):  # 제목 OR 검색
         problemsCollections.drop_index('*')
         count = problemsCollections.count()
         word = args['word']
-        if count < int(args['next_problem']):
-            return json.dumps([])
+        if count <= int(args['next_problem']):
+            return json.dumps('NoData')
         problemsCollections.create_index([('title', 'text')])
         sortedproblem = problemsCollections.find({"$text": {"$search": word}}).sort('date', -1).skip(
             int(args['next_problem'])) \
@@ -245,6 +255,8 @@ class ProblemSearch(Resource):  # 제목 OR 검색
         for v in sortedproblem:
             v['_id'] = str(v['_id'])
             result.append(v)
+        if len(result) is 0:
+            return json.dumps('NoData')
         return json.dumps(result)
 
 
@@ -255,11 +267,8 @@ class ProblemGenre(Resource):  # 장르검색
         problemsCollections.drop_index('*')
         count = problemsCollections.count()
         word = args['genre']
-        print('인덱스', problemsCollections.index_information())
-        print(word)
-        print(type(word))
-        if count < int(args['next_problem']):
-            return json.dumps([])
+        if count <= int(args['next_problem']):
+            return json.dumps('NoData')
         problemsCollections.create_index([('genre', 'text')])
         sortedproblem = problemsCollections.find({"$text": {"$search": word}}).sort('date', -1).skip(
             int(args['next_problem'])) \
@@ -268,72 +277,16 @@ class ProblemGenre(Resource):  # 장르검색
         for v in sortedproblem:
             v['_id'] = str(v['_id'])
             result.append(v)
-
+        if len(result) is 0:
+            return json.dumps('NoData')
         return json.dumps(result)
 
-
-# class ProblemSearch(Resource):     #제목 and 검색
-#     # @login_required()
-#     def post(self):
-#         args = parser.parse_args()
-#         # count = problemsCollections.count()
-#         count = 13
-#         word = args['word']
-#         start = int(args['start'])
-#         listword = word.split()
-#         if count < int(args['next_problem']):
-#             return json.dumps([])
-#         problemsCollections.create_index([('title', 'text')])
-#         # 검색
-#         array = []
-#         flag = 1
-#         add = 0  #더한 갯수
-#         while start < count or len(array) < 3:
-#             sortedproblem = list(problemsCollections.find({"$text": {"$search": listword[0]}}).sort('date', -1).skip(start).limit(start + 10))
-#             for problem in enumerate(sortedproblem):   #한개씩 살펴볼 문제
-#                 for word in enumerate(listword):  #존재해야 하는 단어 목록
-#                     if word[1] not in problem[1]['title']:
-#                         flag = 0
-#                         print('타이틀', problem[1]['title'])
-#                         print('검색단어', word[1])
-#                         break
-#                 if flag is 0:
-#                     continue
-#                 else:
-#                     print('넣을문제', problem[1])
-#                     add = problem[0] + 1
-#                     array.append(problem[1])
-#
-#                 if len(array) is 3:
-#                     break
-#
-#             if len(array) is 3:
-#                 start = start + add
-#                 break
-#             else:
-#                 start = start + 10
-##################################################################
-#         print(array)
-#
-#         # sortedproblem.create_index([('title', 'text')])
-#         # listword.remove(listword[0])
-#         # for x in listword:
-#         #     sortedproblem = sortedproblem.collation({"$text": {"$search": x}})
-#
-#         # sortedproblem.sort('date', -1).skip(int(args['next_problem'])).limit(3)
-#         result = []
-#         # for v in sortedproblem:
-#         #     v['_id'] = str(v['_id'])
-#         #
-#         #     result.append(v)
-#         return json.dumps(result)
-
-
+      
 class ProblemSolution(Resource):
     @login_required()
     def post(self):
         content = request.get_json()
-        print(content, "__제출된 답__")
+        # print(content, "__제출된 답__")
         original = problemsCollections.find_one(ObjectId(content['problem_id']))
         original_answers = []
         for problem in original['problems']:
@@ -346,14 +299,14 @@ class ProblemSolution(Resource):
                 if choice['answer']:
                     arr.append(index)
             original_answers.append(arr)
-        print(original_answers, "__ 진짜 답 __")
+        # print(original_answers, "__ 진짜 답 __")
 
         try_count = len(original_answers)
         right_count = 0
         check_problem = []
         temp_obj = {}
         for i, answer in enumerate(content["answer"]):
-            print(answer == original_answers[i], "정답 비교 <>")
+            # print(answer == original_answers[i], "정답 비교 <>")
             if answer == original_answers[i]:
                 right_count = right_count + 1
                 problemsCollections.update_one({"_id": ObjectId(content['problem_id'])},
@@ -445,6 +398,39 @@ class Account(Resource):
         user['_id'] = str(user['_id'])
         return user
 
+class AccountNick(Resource):
+    @login_required()
+    def post(self):
+        evaluation = request.get_json()
+        nick = evaluation['nick']
+        usersCollections.update_one({'email': session['email']},
+                                       {'$set': {"nickname": nick }})
+        return 'ok'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class AccountImg(Resource):
+    @login_required()
+    def post(self):
+        pic = request.get_json()
+        img = pic['img']
+        usersCollections.update_one({'email': session['email']},
+                                    {'$set': {"img": img}})
+        return 'ok'
+
 
 # URL Router에 맵핑한다.(Rest URL정의)
 
@@ -468,6 +454,9 @@ api.add_resource(Problem, '/problem')
 
 # account - GET, POST
 api.add_resource(Account, '/account/info')
+api.add_resource(AccountNick, '/account/nick')
+
+api.add_resource(AccountImg, '/account/img')
 
 # 서버 실행
 if __name__ == '__main__':
