@@ -7,13 +7,15 @@
 3) python3 /app/app.py test         [테스트서버실행]
 
 ### 백그라운드 실행 (with log)
-* nohup python3 app/app.py prod > app.log &   (에러출력이 파일에 찍혀서 터미널로 확인 안됨 주의) 
-* netstat -ntlp | grep :8000      (포트점유 확인)
-* tail -f app.log   (로그 확인)
+* nohup python3 app/app.py prod > app.log &
+> 에러출력이 파일에 찍혀서 터미널로 확인 안됨 주의)    
+* netstat -ntlp | grep :8000      
+> (포트점유 확인)
+* tail -f app.log   
+> (로그 확인)
 
-
-→ lsof -i -nP | grep LISTEN | awk '{print $(NF-1)" "$1}' | sort -u
-* EC2 54.180.82.249
+### 호스트 정보
+* 54.180.82.249
 
 ### 실행유의사항
 bash theme을 설정해놓은 ec2user에서 가상환경으로 실행

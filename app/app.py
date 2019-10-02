@@ -135,7 +135,6 @@ def Logout():
 
 
 app.secret_key = getattr(sys.modules[__name__], 'FN_FLASK_SECRET_KEY')
-app.register_blueprint(google_auth.app)
 
 # json 쪼개는 로직
 parser = reqparse.RequestParser()
