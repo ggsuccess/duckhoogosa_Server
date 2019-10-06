@@ -167,6 +167,7 @@ class CommentList(Resource):
             nick = usersCollections.find_one({"email": v['email']})
             if type(nick) != None:
                 v['nick'] = nick['nickname']
+                v['img'] = nick['img']
                 result.append(v)
         return json.dumps(list(result))
 
@@ -280,7 +281,7 @@ class ProblemGenre(Resource):  # 장르검색
             return json.dumps('NoData')
         return json.dumps(result)
 
-      
+
 class ProblemSolution(Resource):
     @login_required()
     def post(self):
@@ -397,28 +398,15 @@ class Account(Resource):
         user['_id'] = str(user['_id'])
         return user
 
+
 class AccountNick(Resource):
     @login_required()
     def post(self):
         evaluation = request.get_json()
         nick = evaluation['nick']
         usersCollections.update_one({'email': session['email']},
-                                       {'$set': {"nickname": nick }})
+                                    {'$set': {"nickname": nick}})
         return 'ok'
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class AccountImg(Resource):
