@@ -188,7 +188,6 @@ class Comment(Resource):
 
 
 class ProblemGet(Resource):
-    @login_required()
     def get(self, problem_id):
         print(problem_id, "give me problem")
         result = problemsCollections.find_one(ObjectId(problem_id))
@@ -197,7 +196,6 @@ class ProblemGet(Resource):
 
 
 class Problem(Resource):
-    @login_required()
     def post(self):
         args = parser.parse_args()
         obj = {"link": args['representImg'], "filename": getFileNameFromLink(args['representImg'])}
