@@ -2,9 +2,9 @@
 
 ### 앱실행
 1) source /venv/bin/activate
-2) python3 /app/app.py [dev]        [옵션 없거나 dev면 dev]
+2) python3 /app/app.py [dev]  [옵션 없거나 dev면 dev]
 3) python3 /app/app.py prod   [서버실행]
-3) python3 /app/app.py test         [테스트서버실행]
+3) python3 /app/app.py test   [테스트서버실행]
 
 ### 백그라운드 실행 (with log)
 * nohup python3 app/app.py prod > app.log &
@@ -38,7 +38,7 @@ https://stackoverflow.com/questions/38134086/how-to-run-pylint-with-pycharm
 
 
 ## 가상 환경 설정
-서버는 EC2user 계정으로 실
+서버는 EC2user 계정으로 실행
 - pip install venv
 - python3 -m venv venv
 - which python3 
