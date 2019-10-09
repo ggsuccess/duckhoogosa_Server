@@ -108,7 +108,7 @@ def Login():
             if result is None:
                 user = {
                     "email": email,
-                    "nickname": None,
+                    "nickname": '익명',
                     "img": None,
                     "tier": None,
                     "answerCount": 0,
@@ -160,6 +160,22 @@ class CommentList(Resource):
     @login_required()
     def get(self, problem_id):
         temp = commentsCollections.find({"problem_id": problem_id}).sort('day', -1)
+        rating = ratingsColeections.find({'problem_id': problem_id})
+        result = problemsCollections.find_one(ObjectId(problem_id))
+        user = usersCollections.find_one({"email": result['email']})
+
+        totalq = 0
+        totald = 0
+        count = 0
+        for v in rating:
+            if type(v['quality']) == type(1):
+                totalq = totalq + v['quality']
+                totald = totald + v['dificulty']
+                count = count + 1
+
+        info = {'totalq': totalq, 'totald': totald, 'count': count, 'nick': str(user['nickname']),
+                'title': result['title'], 'solvedUsers': result['tryCount'] / len(result['problems'])}
+
         result = []
         for v in temp:
             v['_id'] = str(v['_id'])
@@ -169,7 +185,8 @@ class CommentList(Resource):
                 v['nick'] = nick['nickname']
                 v['img'] = nick['img']
                 result.append(v)
-        return json.dumps(list(result))
+        info['result'] = list(result)
+        return json.dumps(info)
 
 
 class Comment(Resource):
@@ -230,6 +247,7 @@ class ProblemMain(Resource):
         if len(result) is 0:
             return json.dumps('NoData')
         return json.dumps(result)
+
 
     @login_required()
     def get(self):
