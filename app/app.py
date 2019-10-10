@@ -1,7 +1,7 @@
 # -'-coding:utf-8-'-
 import sys
 import json
-import datetime
+from datetime import datetime
 import pprint
 import time
 from flask import Flask, session, request
@@ -16,9 +16,7 @@ from flask_cors import CORS, cross_origin
 import logging
 import sys
 import config
-
 from setConfigure import set_secret
-
 app = Flask(__name__)
 
 set_secret(__name__)
@@ -175,16 +173,16 @@ class CommentList(Resource):
 
         info = {'totalq': totalq, 'totald': totald, 'count': count, 'nick': str(user['nickname']),
                 'title': result['title'], 'solvedUsers': result['tryCount'] / len(result['problems'])}
-
         result = []
         for v in temp:
-            v['_id'] = str(v['_id'])
-            v['day'] = str(v['day'])
-            nick = usersCollections.find_one({"email": v['email']})
-            if type(nick) != None:
-                v['nick'] = nick['nickname']
-                v['img'] = nick['img']
-                result.append(v)
+            if v['email'] != None:
+                v['_id'] = str(v['_id'])
+                v['day'] = str(v['day'])
+                nick = usersCollections.find_one({"email": v['email']})
+                if type(nick) != None:
+                    v['nick'] = nick['nickname']
+                    v['img'] = nick['img']
+                    result.append(v)
         info['result'] = list(result)
         return json.dumps(info)
 
@@ -193,11 +191,12 @@ class Comment(Resource):
     @login_required()
     def post(self):
         args = parser.parse_args()
+        now = datetime.now()
         comment = {
             "email": args.email,
             "problem_id": args.problem_id,
             "comment": args.comment,
-            "day": int(time.mktime(datetime.datetime.utcnow().timetuple())) * 1000}
+            "day": now}
 
         result_id = commentsCollections.insert_one(comment).inserted_id
         obj = {"_id": str(result_id)}
@@ -375,7 +374,8 @@ class ProblemEvalation(Resource):
     @login_required()
     def post(self):
         evaluation = request.get_json()
-        # print('평가', evaluation)
+        # `print`('평가', evaluation)
+        now = datetime.now()
         rating = {
             "problem_id": evaluation['_id'],
             "quality": evaluation['evalQ'],
@@ -386,8 +386,9 @@ class ProblemEvalation(Resource):
             "problem_id": evaluation['_id'],
             "email": evaluation['email'],
             "comment": evaluation['comments'],
-            "day": datetime.datetime.utcnow()
+            "day": now
         }
+        print('time', comment['day'])
         commentsCollections.insert_one(comment)
         ratingsColeections.insert_one(rating)
         return "good!"
