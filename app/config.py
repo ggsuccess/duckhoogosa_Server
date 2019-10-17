@@ -18,7 +18,7 @@ class TestConfig(Base):
     DEBUG = True
     TESTING = True
     PORT = 7999
-    SERVER_HOST = 'ec2-54-180-82-249.ap-northeast-2.compute.amazonaws.com'
+    SERVER_HOST = '172.31.32.164'
     DATABASE_NAME = 'ducktestdb'
     CLIENT_HOST = 'http://duckhoo.site'
 
@@ -26,6 +26,6 @@ class TestConfig(Base):
 class ProductionConfig(Base):
     DEBUG = True
     PORT = 8000
-    SERVER_HOST = 'ec2-54-180-82-249.ap-northeast-2.compute.amazonaws.com'
+    SERVER_HOST = '172.31.32.164'
     DATABASE_NAME = 'duckproductiondb'
     CLIENT_HOST = 'http://duckhoo.site'

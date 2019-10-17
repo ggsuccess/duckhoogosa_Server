@@ -7,7 +7,7 @@
 3) python3 /app/app.py test   [테스트서버실행]
 
 ### 백그라운드 실행 (with log)
-* nohup python3 app/app.py prod > app.log &
+* sudo nohup python3 app/app.py prod > app.log &
 > 에러출력이 파일에 찍혀서 터미널로 확인 안됨 주의)    
 * netstat -ntlp | grep :8000      
 > (포트점유 확인)
@@ -49,3 +49,7 @@ https://stackoverflow.com/questions/38134086/how-to-run-pylint-with-pycharm
 
 ## 디버깅.
 - 셋팅 다되어있는데 CORS나면 그냥 잘못된 라우팅 또는 로직이 터져서 그냥 응답이 안간거다. 
+
+ELP (외부 공개용 고정 아이피 )>>  13.209.226.132 이게 flask가 api를 받아들일 통로로 설정해놓은것. 그래서 저걸 써야함. 13.209.226.132<- 자기를 그렇게 아들임.
+AWS 내부용 아이피 >> 172.31.32.164
+
