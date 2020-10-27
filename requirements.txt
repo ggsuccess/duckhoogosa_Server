@@ -16,7 +16,7 @@ cffi==1.12.3
 chardet==3.0.4
 Click==7.0
 colormath==3.0.0
-cryptography==2.7
+cryptography==3.2
 cycler==0.10.0
 decorator==4.4.0
 docutils==0.15.2
